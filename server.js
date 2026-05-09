@@ -93,13 +93,10 @@ app.post('/api/tag', async (req, res) => {
 
     if (!qText) return res.json({ error: '未能识别到题目内容' });
 
-    // 用文本模型标注
-    const content = [{ type: 'text', text:
-      '你是高中物理题目分析专家。分析以下题目，返回JSON：\n题目：' + qText +
-      '\n返回格式:{"知识点":[],"子知识点":[],"考查层次":"记忆/理解/应用/分析/综合","难度":"简单/中等/较难","解题思路":["步骤"],"答案":""}' +
-      '\n知识范围:运动学/牛顿力学/动量能量/振动波/电学/热学/光学/原子物理。只返回JSON，不返回markdown。'
-    }];
-    const text = await callGLM([{ role: 'user', content }], 800);
+    const text = await callGLM([{ role: 'user', content:
+      '你只返回JSON，不说任何其他话。分析题目：' + qText +
+      '\n{"知识点":[],"子知识点":[],"考查层次":"记忆/理解/应用/分析/综合","难度":"简单/中等/较难","解题思路":[],"答案":""}'
+    }], 800);
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) return res.json({ error: '解析失败', raw: text, ocrText: qText });
     res.json({ success: true, ocrText: qText, ...JSON.parse(m[0]) });
@@ -131,12 +128,11 @@ app.post('/api/analyze', async (req, res) => {
 
     if (!qText) return res.json({ error: '未能识别题目' });
 
-    const content = [{ type: 'text', text:
-      '分析学生解题：\n【题目】' + qText +
-      (aText ? '\n【学生解题过程】' + aText : '（学生未提供解题过程，请仅标注题目）') +
-      '\n返回JSON:{"知识点覆盖":[],"正确步骤":[],"错误步骤":[],"薄弱知识点":[],"学习建议":"200字","推荐练习":""}。只返回JSON。'
-    }];
-    const text = await callGLM([{ role: 'user', content }], 1000);
+    const text = await callGLM([{ role: 'user', content:
+      '你只返回JSON。分析学生解题：\n【题目】' + qText +
+      (aText ? '\n【解题过程】' + aText : '') +
+      '\n{"知识点覆盖":[],"正确步骤":[],"错误步骤":[],"薄弱知识点":[],"学习建议":"","推荐练习":""}'
+    }], 1000);
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) return res.json({ error: '解析失败', raw: text });
     res.json({ success: true, ocrText: qText, ...JSON.parse(m[0]) });

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>物理学习助手</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); min-height: 100vh; }
+  .card { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+  .tag { padding: 2px 10px; border-radius: 8px; font-size: 13px; }
+  .tag-blue { background: rgba(59,130,246,0.2); color: #93c5fd; }
+  .tag-purple { background: rgba(168,85,247,0.2); color: #c4b5fd; }
+  .tag-cyan { background: rgba(6,182,212,0.2); color: #67e8f9; }
+  .tag-green { background: rgba(34,197,94,0.2); color: #86efac; }
+  .tag-yellow { background: rgba(234,179,8,0.2); color: #fde047; }
+  .tag-red { background: rgba(239,68,68,0.2); color: #fca5a5; }
+  .tag-rose { background: rgba(244,114,182,0.2); color: #f9a8d4; }
+  textarea, input { background: rgba(15,23,42,0.8); }
+  .btn { transition: all 0.2s; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .spinner { animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .msg-user { background: rgba(59,130,246,0.2); border-radius: 16px 16px 4px 16px; }
+  .msg-ai { background: rgba(255,255,255,0.08); border-radius: 16px 16px 16px 4px; }
+</style>
+</head>
+<body class="text-slate-300">
+<div class="min-h-screen flex flex-col">
+  <header class="border-b border-white/10">
+    <div class="max-w-4xl mx-auto px-6 py-5">
+      <h1 class="text-2xl font-bold text-white">🎓 物理学习助手</h1>
+      <p class="text-slate-400 text-sm mt-1">拍题识别 · 知识点标注 · 解题分析 · 苏格拉底对话</p>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-4xl mx-auto px-6 py-6 w-full space-y-5">
+    <!-- Tabs -->
+    <div class="flex bg-white/5 rounded-xl p-1 gap-1">
+      <button onclick="switchTab('tag')" id="tabTag" class="flex-1 py-2.5 rounded-lg text-sm font-medium bg-blue-600 text-white">📝 题目标注</button>
+      <button onclick="switchTab('analyze')" id="tabAnalyze" class="flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/10">🔍 解题分析</button>
+      <button onclick="switchTab('chat')" id="tabChat" class="flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/10">💬 对话助手</button>
+    </div>
+
+    <!-- Error -->
+    <div id="errorBox" class="hidden bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-3 text-red-400 text-sm"></div>
+
+    <!-- ===== TAB 1: 题目标注 ===== -->
+    <div id="tab-tag">
+      <div class="card rounded-2xl p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">输入题目文字 或 上传图片自动识别</label>
+          <textarea id="tagInput" rows="4" class="w-full rounded-xl px-4 py-3 border border-white/10 focus:border-blue-500 outline-none resize-none text-white placeholder-slate-500" placeholder="输入物理题目，或点击下方上传图片自动识别..."></textarea>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="btn px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm cursor-pointer flex items-center gap-2">
+            <span id="tagImgLabel">📷 上传图片</span>
+            <input type="file" accept="image/*" onchange="handleTagImage(event)" id="tagImageInput" style="display:none">
+          </label>
+          <span id="tagImgStatus" class="text-xs text-slate-500"></span>
+          <button id="tagBtn" onclick="doTag()" class="btn px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium ml-auto">🔍 标注题目</button>
+        </div>
+      </div>
+      <div id="tagPreview" class="hidden mt-3 card rounded-2xl p-3">
+        <img id="tagPreviewImg" class="max-h-48 rounded-lg mx-auto" />
+      </div>
+      <div id="tagResult" class="mt-4 hidden card rounded-2xl p-6 space-y-4"></div>
+    </div>
+
+    <!-- ===== TAB 2: 解题分析 ===== -->
+    <div id="tab-analyze" class="hidden">
+      <div class="card rounded-2xl p-6 space-y-4">
+        <div><label class="block text-sm font-medium text-slate-300 mb-2">📄 原题目（可选，留空则由AI从图片识别）</label>
+          <textarea id="analyzeQuestion" rows="2" class="w-full rounded-xl px-4 py-3 border border-white/10 focus:border-blue-500 outline-none resize-none text-white placeholder-slate-500" placeholder="输入原物理题目，或上传图片自动识别..."></textarea></div>
+        <div><label class="block text-sm font-medium text-slate-300 mb-2">✏️ 学生解题过程（可选）</label>
+          <textarea id="analyzeAnswer" rows="3" class="w-full rounded-xl px-4 py-3 border border-white/10 focus:border-blue-500 outline-none resize-none text-white placeholder-slate-500" placeholder="粘贴学生的解题过程，或上传图片自动识别..."></textarea></div>
+        <div class="flex items-center gap-3">
+          <label class="btn px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm cursor-pointer flex items-center gap-2">
+            <span id="analyzeImgLabel">📷 上传图片</span>
+            <input type="file" accept="image/*" onchange="handleAnalyzeImage(event)" id="analyzeImageInput" style="display:none">
+          </label>
+          <span id="analyzeImgStatus" class="text-xs text-slate-500"></span>
+          <button id="analyzeBtn" onclick="doAnalyze()" class="btn px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-medium ml-auto">🔍 开始分析</button>
+        </div>
+      </div>
+      <div id="analyzePreview" class="hidden mt-3 card rounded-2xl p-3">
+        <img id="analyzePreviewImg" class="max-h-48 rounded-lg mx-auto" />
+      </div>
+      <div id="analyzeResult" class="mt-4 hidden card rounded-2xl p-6 space-y-4"></div>
+    </div>
+
+    <!-- ===== TAB 3: 对话助手 ===== -->
+    <div id="tab-chat" class="hidden">
+      <div class="card rounded-2xl p-4 space-y-3" style="min-height:400px;max-height:500px;overflow-y:auto" id="chatMessages">
+        <div class="text-center text-slate-500 text-sm py-8">
+          <p class="text-3xl mb-2">💬</p>
+          <p>我是你的物理苏格拉底导师</p>
+          <p class="text-xs mt-1">我不会直接给答案，而是通过提问引导你自己发现答案</p>
+        </div>
+      </div>
+      <div class="mt-3 card rounded-2xl p-3 flex gap-2">
+        <input id="chatInput" type="text" class="flex-1 rounded-xl px-4 py-2.5 border border-white/10 focus:border-blue-500 outline-none text-white placeholder-slate-500" placeholder="输入你的问题..." onkeydown="if(event.key==='Enter')doChat()">
+        <button id="chatBtn" onclick="doChat()" class="btn px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium">发送</button>
+        <button onclick="clearChat()" class="btn px-3 py-2.5 bg-white/10 hover:bg-white/20 text-slate-400 rounded-xl text-sm">清空</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t border-white/10 mt-8">
+    <div class="max-w-4xl mx-auto px-6 py-4 text-center text-xs text-slate-600">物理学习助手 · 本地Web应用 · 智谱AI GLM-4V-Flash</div>
+  </footer>
+</div>
+
+<script>
+let currentTab = 'tag';
+let chatHistory = [];
+let tagImageB64 = null;
+let analyzeImageB64 = null;
+
+function switchTab(t) {
+  currentTab = t;
+  ['tag','analyze','chat'].forEach(x => document.getElementById('tab-'+x).classList.toggle('hidden', x!==t));
+  document.querySelectorAll('#tabTag,#tabAnalyze,#tabChat').forEach(b => b.className = b.className.replace(/bg-\w+-\d+\s*text-white/, 'text-slate-300 hover:bg-white/10'));
+  document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).className = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).className.replace(/text-slate-300\s*hover:bg-white\/10/, 'bg-blue-600 text-white');
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.innerHTML = '⚠ ' + msg;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 10000);
+}
+
+function setLoading(btn, loading, orig) {
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full mr-2"></span>处理中...' : orig;
+}
+
+// 图片转base64
+function fileToBase64(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  });
+}
+
+// ===== 题目标注图片 =====
+async function handleTagImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  tagImageB64 = await fileToBase64(file);
+  document.getElementById('tagPreview').classList.remove('hidden');
+  document.getElementById('tagPreviewImg').src = tagImageB64;
+  document.getElementById('tagImgLabel').textContent = '✅ 已选择图片';
+  document.getElementById('tagImgStatus').textContent = file.name;
+}
+
+// ===== 解题分析图片 =====
+async function handleAnalyzeImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  analyzeImageB64 = await fileToBase64(file);
+  document.getElementById('analyzePreview').classList.remove('hidden');
+  document.getElementById('analyzePreviewImg').src = analyzeImageB64;
+  document.getElementById('analyzeImgLabel').textContent = '✅ 已选择图片';
+  document.getElementById('analyzeImgStatus').textContent = file.name;
+}
+
+// ===== 题目标注 =====
+async function doTag() {
+  const q = document.getElementById('tagInput').value.trim();
+  if (!q && !tagImageB64) return showError('请输入题目或上传图片');
+
+  const btn = document.getElementById('tagBtn');
+  setLoading(btn, true, '🔍 标注题目');
+  try {
+    const body = {};
+    if (q) body.question = q;
+    if (tagImageB64) body.imageBase64 = tagImageB64;
+    const r = await fetch('/api/tag', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const d = await r.json();
+    if (d.error) { showError(d.error); return; }
+    renderTagResult(d);
+  } catch(e) { showError('请求失败: '+e.message); }
+  finally { setLoading(btn, false, '🔍 标注题目'); }
+}
+
+function renderTagResult(d) {
+  const el = document.getElementById('tagResult');
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span><span class="text-green-400 text-sm">标注完成</span></div>
+    ${d.ocrText ? '<div class="bg-white/5 rounded-xl p-3 text-xs text-slate-400"><span class="text-slate-500">识别文字：</span>'+d.ocrText+'</div>' : ''}
+    <div><h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">知识点</h3><div class="flex flex-wrap gap-2">${(d.知识点||[]).map(k=>`<span class="tag tag-blue">${k}</span>`).join('')}</div></div>
+    <div><h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">子知识点</h3><div class="flex flex-wrap gap-2">${(d.子知识点||[]).map(k=>`<span class="tag tag-purple">${k}</span>`).join('')}</div></div>
+    <div class="flex gap-6 flex-wrap"><div><span class="text-xs text-slate-500 block mb-1">考查层次</span><span class="tag tag-cyan">${d.考查层次||'-'}</span></div><div><span class="text-xs text-slate-500 block mb-1">难度</span><span class="tag ${d.难度==='简单'?'tag-green':d.难度==='中等'?'tag-yellow':'tag-red'}">${d.难度||'-'}</span></div></div>
+    <div><h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">解题思路</h3>${(d.解题思路||[]).map((s,i)=>`<div class="flex items-center gap-2 text-sm text-slate-300 mb-1"><span class="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-xs flex-shrink-0">${i+1}</span>${s}</div>`).join('')}</div>
+    ${d.答案?`<div><span class="text-xs text-slate-500">答案：</span><span class="text-white font-medium">${d.答案}</span></div>`:''}
+  `;
+}
+
+// ===== 解题分析 =====
+async function doAnalyze() {
+  const question = document.getElementById('analyzeQuestion').value.trim();
+  const answer = document.getElementById('analyzeAnswer').value.trim();
+  if (!question && !answer && !analyzeImageB64) return showError('请填写内容或上传图片');
+
+  const btn = document.getElementById('analyzeBtn');
+  setLoading(btn, true, '🔍 开始分析');
+  try {
+    const body = {};
+    if (question) body.question = question;
+    if (answer) body.studentAnswer = answer;
+    if (analyzeImageB64) body.imageBase64 = analyzeImageB64;
+    const r = await fetch('/api/analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const d = await r.json();
+    if (d.error) { showError(d.error); return; }
+    renderAnalyzeResult(d);
+  } catch(e) { showError('请求失败: '+e.message); }
+  finally { setLoading(btn, false, '🔍 开始分析'); }
+}
+
+function renderAnalyzeResult(d) {
+  const el = document.getElementById('analyzeResult');
+  el.classList.remove('hidden');
+  el.innerHTML = `
+    <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span><span class="text-green-400 text-sm">分析完成</span></div>
+    ${d.ocrText ? '<div class="bg-white/5 rounded-xl p-3 text-xs text-slate-400"><span class="text-slate-500">识别文字：</span>'+d.ocrText+'</div>' : ''}
+    <div><h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">涉及知识点</h3><div class="flex flex-wrap gap-2">${(d.知识点覆盖||[]).map(k=>`<span class="tag tag-blue">${k}</span>`).join('')}</div></div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-green-500/5 rounded-xl p-4 border border-green-500/20"><h3 class="text-sm font-medium text-green-400 mb-2">✅ 正确步骤</h3>${(d.正确步骤||[]).map(s=>`<p class="text-sm text-slate-300 mb-1">• ${s}</p>`).join('')||'<p class="text-sm text-slate-500">未提供解题过程</p>'}</div>
+      <div class="bg-red-500/5 rounded-xl p-4 border border-red-500/20"><h3 class="text-sm font-medium text-red-400 mb-2">❌ 错误/改进点</h3>${(d.错误步骤||[]).map(s=>`<p class="text-sm text-slate-300 mb-1">• ${s}</p>`).join('')||'<p class="text-sm text-slate-500">暂无</p>'}</div>
+    </div>
+    <div><h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">薄弱知识点</h3><div class="flex flex-wrap gap-2">${(d.薄弱知识点||[]).map(k=>`<span class="tag tag-rose">${k}</span>`).join('')||'<span class="text-sm text-slate-500">-</span>'}</div></div>
+    <div class="bg-white/5 rounded-xl p-4"><h3 class="text-sm font-medium text-yellow-400 mb-2">💡 学习建议</h3><p class="text-sm text-slate-300">${d.学习建议||''}</p></div>
+    ${d.推荐练习?`<div class="bg-white/5 rounded-xl p-4"><h3 class="text-sm font-medium text-cyan-400 mb-2">📚 推荐练习</h3><p class="text-sm text-slate-300">${d.推荐练习}</p></div>`:''}
+  `;
+}
+
+// ===== 苏格拉底对话 =====
+function clearChat() {
+  chatHistory = [];
+  document.getElementById('chatMessages').innerHTML = `<div class="text-center text-slate-500 text-sm py-8"><p class="text-3xl mb-2">💬</p><p>我是你的物理苏格拉底导师</p><p class="text-xs mt-1">我不会直接给答案，而是通过提问引导你自己发现答案</p></div>`;
+}
+
+function addChatMsg(role, content) {
+  const el = document.getElementById('chatMessages');
+  if (chatHistory.length === 0) el.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'p-3 mb-2 max-w-[85%] ' + (role==='user'?'msg-user ml-auto':'msg-ai');
+  div.innerHTML = `<p class="text-sm">${content.replace(/\n/g,'<br>')}</p>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function doChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addChatMsg('user', msg);
+  chatHistory.push({ role: 'user', content: msg });
+
+  const btn = document.getElementById('chatBtn');
+  setLoading(btn, true, '发送');
+  try {
+    const r = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({messages: chatHistory}) });
+    const d = await r.json();
+    if (d.error) { showError(d.error); return; }
+    addChatMsg('assistant', d.reply);
+    chatHistory.push({ role: 'assistant', content: d.reply });
+  } catch(e) { showError('请求失败: '+e.message); }
+  finally { setLoading(btn, false, '发送'); }
+}
+</script>
+</body>
+</html>

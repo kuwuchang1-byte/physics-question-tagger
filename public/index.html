@@ -91,15 +91,28 @@
 
     <!-- ===== TAB 3: 对话助手 ===== -->
     <div id="tab-chat" class="hidden">
-      <div class="card rounded-2xl p-4 space-y-3" style="min-height:400px;max-height:500px;overflow-y:auto" id="chatMessages">
+      <!-- 模式切换 -->
+      <div class="flex bg-white/5 rounded-xl p-1 gap-1 mb-4">
+        <button onclick="setChatMode('linked')" id="chatModeLinked" class="flex-1 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white">📎 关联题目</button>
+        <button onclick="setChatMode('free')" id="chatModeFree" class="flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/10">💬 自由提问</button>
+      </div>
+      <!-- 关联题目输入 -->
+      <div id="linkedQuestionBox" class="card rounded-2xl p-4 mb-4">
+        <label class="block text-xs font-medium text-slate-400 mb-2">📄 关联的物理题目</label>
+        <textarea id="linkedQuestion" rows="2" class="w-full rounded-xl px-4 py-3 border border-white/10 focus:border-green-500 outline-none resize-none text-white placeholder-slate-500 text-sm" placeholder="粘贴你要讨论的物理题目，或从题目标注Tab复制..."></textarea>
+      </div>
+      <div id="freeQuestionHint" class="hidden card rounded-2xl p-3 mb-4 text-xs text-slate-500 text-center">自由模式：你可以问任何物理问题，不关联特定题目</div>
+      <!-- 对话区 -->
+      <div class="card rounded-2xl p-4 space-y-3" style="min-height:350px;max-height:450px;overflow-y:auto" id="chatMessages">
         <div class="text-center text-slate-500 text-sm py-8">
           <p class="text-3xl mb-2">💬</p>
           <p>我是你的物理苏格拉底导师</p>
           <p class="text-xs mt-1">我不会直接给答案，而是通过提问引导你自己发现答案</p>
         </div>
       </div>
+      <!-- 输入区 -->
       <div class="mt-3 card rounded-2xl p-3 flex gap-2">
-        <input id="chatInput" type="text" class="flex-1 rounded-xl px-4 py-2.5 border border-white/10 focus:border-blue-500 outline-none text-white placeholder-slate-500" placeholder="输入你的问题..." onkeydown="if(event.key==='Enter')doChat()">
+        <input id="chatInput" type="text" class="flex-1 rounded-xl px-4 py-2.5 border border-white/10 focus:border-green-500 outline-none text-white placeholder-slate-500" placeholder="输入你的问题..." onkeydown="if(event.key==='Enter')doChat()">
         <button id="chatBtn" onclick="doChat()" class="btn px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium">发送</button>
         <button onclick="clearChat()" class="btn px-3 py-2.5 bg-white/10 hover:bg-white/20 text-slate-400 rounded-xl text-sm">清空</button>
       </div>
@@ -114,8 +127,17 @@
 <script>
 let currentTab = 'tag';
 let chatHistory = [];
+let chatMode = 'linked';
 let tagImageB64 = null;
 let analyzeImageB64 = null;
+
+function setChatMode(m) {
+  chatMode = m;
+  document.getElementById('chatModeLinked').className = m==='linked' ? 'flex-1 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white' : 'flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/10';
+  document.getElementById('chatModeFree').className = m==='free' ? 'flex-1 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white' : 'flex-1 py-2.5 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/10';
+  document.getElementById('linkedQuestionBox').classList.toggle('hidden', m!=='linked');
+  document.getElementById('freeQuestionHint').classList.toggle('hidden', m!=='free');
+}
 
 function switchTab(t) {
   currentTab = t;
@@ -271,7 +293,12 @@ async function doChat() {
   const btn = document.getElementById('chatBtn');
   setLoading(btn, true, '发送');
   try {
-    const r = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({messages: chatHistory}) });
+    const body = { messages: chatHistory };
+    if (chatMode === 'linked') {
+      const q = document.getElementById('linkedQuestion').value.trim();
+      if (q) body.question = q;
+    }
+    const r = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     const d = await r.json();
     if (d.error) { showError(d.error); return; }
     addChatMsg('assistant', d.reply);
